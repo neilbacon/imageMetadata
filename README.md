@@ -15,6 +15,10 @@ For Ubuntu 16.04 LTS and 17.10:
 
     sudo apt-get install python3 python3-gi libexiv2-dev libgexiv2-2 gir1.2-gexiv2 
 
+## Backups
+
+There are lots of articles on how to use rsync for incremental backups. I've included my `backup.sh` as an example.
+
 ## Hierarchical Tags
 I use hierarchical tags in digikam which have `/` separated items. The hierarchical tags used
 by Adobe light room and mediapro are `|` separated are these are also updated.
