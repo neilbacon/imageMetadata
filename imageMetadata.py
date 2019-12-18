@@ -1,5 +1,5 @@
-# ubuntu 16.04 LTS and 17.10 requirements:
-# sudo apt-get install python3-gi libexiv2-dev libgexiv2-2 gir1.2-gexiv2
+# ubuntu 16.04 LTS and 17.10 requirements: 
+# sudo apt-get install python3-gi libexiv2-dev libgexiv2-2 gir1.2-gexiv2 
 
 import argparse
 import os
@@ -9,11 +9,11 @@ from datetime import datetime
 
 # else PyGIWarning: GExiv2 was imported without specifying a version first
 import gi
-gi.require_version('GExiv2', '0.10')
+gi.require_version('GExiv2', '0.10') 
 
 from gi.repository.GExiv2 import Metadata
 
-DATE_RE = re.compile(r'(\d{4})[/-](\d{2})[/-](\d{2})')
+DATE_RE = re.compile(r'(\d{4})[/-](\d{2})[/-](\d{2})')    
 
 DATE_FORMAT = '%Y:%m:%d %H:%M:%S'
 
@@ -23,7 +23,7 @@ API_KEY=None # put your Google API key here or use --apikey
 
 # Usage:
 # curl "https://maps.googleapis.com/maps/api/geocode/json?address=Europe,France,Paris$ " > goo.json
-# jq '.results[0] | { addr: .formatted_address, loc: .geometry.location } ' goo.json
+# jq '.results[0] | { addr: .formatted_address, loc: .geometry.location } ' goo.json 
 # {
 #  "addr": "Paris, France",
 #  "loc": {
@@ -32,12 +32,12 @@ API_KEY=None # put your Google API key here or use --apikey
 #  }
 # }
 #
-# For Sydney it's
+# For Sydney it's 
  # {
  #    "lat" : -33.8688197,
  #    "lng" : 151.2092955
  # }
-
+ 
 geoCache = {
     'Oceania,Australia,NSW,Sydney': {'lat': -33.8688197, 'lng': 151.2092955},
     'Oceania,Australia,Sydney': {'lat': -33.8688197, 'lng': 151.2092955},
@@ -62,7 +62,7 @@ def geoCode(place, apikey):
                 if loc: geoCache[addr] = loc
     print('geoCode: loc = {}'.format(loc))
     return loc
-
+    
 def dateFromPath(path):
     m = DATE_RE.search(path)
     if m:
@@ -75,39 +75,39 @@ def updateListMeta(m, tag, remove, add):
     vals = [ v for v in vals if not remove in v ] if vals else [] # filter any existing v containing remove
     vals.append(add)
     m.set_tag_multiple(tag, vals)
-
+    
 def getMeta(path, args):
     m = Metadata(path)
-
+    
     if args.print:
         print('getMeta: {} exif_tags, {} iptc_tags, {} xmp_tags, path {}, dateFromDirname {}'.format(
-            len(m.get_exif_tags()),
+            len(m.get_exif_tags()), 
             len(m.get_iptc_tags()),
             len(m.get_xmp_tags()),
             path,
             dateFromDirname.strftime(DATE_FORMAT) if dateFromDirname else None
         ))
-
+        
         for t in m.get_tags():
             # if t != 'Exif.Photo.MakerNote': # avoid big binary? item
             if any(x in t for x in [ 'Date', 'Image.Make', 'Model', 'Categories', 'GPS', 'Latitude', 'Longitude' ]):
                 print('getMeta: {} -> {}'.format(t, m.get(t)))
             if any(x in t for x in [ 'Tags', 'LastKeywordXMP', 'HierarchicalSubject', 'CatalogSets', 'Subject', 'Keywords' ]):
                 print('getMeta: {} => [ {} ]'.format(t, ', '.join(m.get_tag_multiple(t))))
-
+    
     return m
-
+    
 def getDate(m):
     for t in ['Exif.Photo.DateTimeOriginal', 'Exif.Photo.DateTimeDigitized', 'Exif.Image.DateTime' ]:
         d = m.get(t)
         if d: return datetime.strptime(d, DATE_FORMAT)
-
+        
 def processImage(path, args, dateFromDirname):
     m = getMeta(path, args)
     if not args.tagfilter or any(t.startswith(args.tagfilter) for t in m.get_tag_multiple('Xmp.digiKam.TagsList')):
-
+        
         mod = False
-
+    
         if args.geocode and args.apikey and not m.get('Exif.GPSInfo.GPSLatitude'):
             place = [ x for x in m.get_tag_multiple('Xmp.digiKam.TagsList') if x.startswith('Places/') ]
             if len(place) > 0:
@@ -116,7 +116,7 @@ def processImage(path, args, dateFromDirname):
                 if loc:
                     m.set_gps_info(loc['lng'], loc['lat'], 0.0)
                     mod = True
-
+        
         model = m.get('Exif.Image.Model')
         d = getDate(m)
         if args.datepath and dateFromDirname and (args.datepathforce or args.scanned or model == 'DSC-80M-52' or not d):
@@ -131,16 +131,16 @@ def processImage(path, args, dateFromDirname):
             for t in [ 'Xmp.exif.DateTimeOriginal', 'Xmp.photoshop.DateCreated', 'Xmp.tiff.DateTime', 'Xmp.video.DateTimeOriginal', 'Xmp.video.DateUTC', 'Xmp.video.ModificationDate', 'Xmp.xmp.CreateDate', 'Xmp.xmp.MetadataDate', 'Xmp.xmp.ModifyDate' ]:
                 m.clear_tag(t)
             mod = True
-
+            
         if args.scanned:
             t = 'Exif.Photo.DateTimeDigitized'
             d = m.get(t)
             print('scanned date = {}'.format(d))
             if not d:
                 d = datetime.fromtimestamp(os.path.getmtime(path)).strftime(DATE_FORMAT)
-                m[t] = d
+                m[t] = d 
                 mod = True
-
+                
         if args.takenby:
             model = m.get('Exif.Image.Model')
             if not model and args.scanned: model = 'Scanned'
@@ -159,12 +159,12 @@ def processImage(path, args, dateFromDirname):
                 for t in [ 'Xmp.lr.hierarchicalSubject', 'Xmp.mediapro.CatalogSets' ]:
                     updateListMeta(m, t, remove, add)
                 mod = True
-
+        
         d = getDate(m)
         if mod:
            m.save_file()
         moveFile(path, d, args.moveimage)
-
+    
 def processVideo(path, args, dateFromDirname):
     moveFile(path, dateFromDirname, args.movevideo)
 
@@ -191,11 +191,11 @@ def uniquePath(dir, basename):
         # print('uniquePath: path = {}'.format(path))
         i = i + 1
     return path
-
-
+    
+  
 # Example usage:
 # python3 im.py --root /media/neil/NBWDPassport/Junk/NeilsOld/2000-10-22/ --takenby 'Taken by/byNeil' --moveimage /media/neil/NBWDPassport/Junk/NeilsOld/moved --geocode --datepath | tee out
-
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser( description = '''Organise a photo collection by updating metadata and moving files.
 This is tailored to my needs and will need hacking about to suit yours.
@@ -237,7 +237,7 @@ files. DigiKam does this automatically on startup.
     args = parser.parse_args()
     if not args.apikey: args.apikey = API_KEY
     print('args: root = {}, datepath = {}, scanned = {}, takenby = {}'.format(args.root, args.datepath, args.scanned, args.takenby))
-
+    
     for dirname, dirnames, filenames in os.walk(args.root if args.root else '.'):
         dateFromDirname = dateFromPath(dirname)
         for filename in filenames:
@@ -251,6 +251,5 @@ files. DigiKam does this automatically on startup.
             # Can't read video metadata: GLib.Error: GExiv2: unsupported format (501)
             if isVideo and dateFromDirname:
                 processVideo(path, args, dateFromDirname)
-
+                
     print('geoCache = {}'.format(geoCache))
-
