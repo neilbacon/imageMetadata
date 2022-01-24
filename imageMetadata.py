@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 # ubuntu 16.04 LTS and 17.10 requirements: 
 # sudo apt-get install python3-gi libexiv2-dev libgexiv2-2 gir1.2-gexiv2 
 
@@ -13,7 +15,7 @@ gi.require_version('GExiv2', '0.10')
 
 from gi.repository.GExiv2 import Metadata
 
-DATE_RE = re.compile(r'(\d{4})[/-](\d{2})[/-](\d{2})')    
+DATE_RE = re.compile(r'(\d{4})[/-]?(\d{2})[/-]?(\d{2})')    
 
 DATE_FORMAT = '%Y:%m:%d %H:%M:%S'
 
@@ -239,10 +241,10 @@ files. DigiKam does this automatically on startup.
     print('args: root = {}, datepath = {}, scanned = {}, takenby = {}'.format(args.root, args.datepath, args.scanned, args.takenby))
     
     for dirname, dirnames, filenames in os.walk(args.root if args.root else '.'):
-        dateFromDirname = dateFromPath(dirname)
         for filename in filenames:
             name, ext = os.path.splitext(filename)
             path = os.path.join(dirname, filename)
+            dateFromDirname = dateFromPath(path)
             isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG' ] # '.GIF'
             isVideo = ext.upper() in [ '.AVI', '.MOV', '.MP4', '.MTS' ]
             print('path = {}, isImage = {}, isVideo = {}'.format(path, isImage, isVideo))
