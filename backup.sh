@@ -38,7 +38,7 @@ shift $((OPTIND - 1))
 case $BACKUP in
   photos)
     SRC="$PHOTOS"
-    EXCL=('/.*' '/*/.dtrash/')              # digikam uses .dtrash for its trash
+    EXCL=('/lost+found/' '/.*' '/*/.dtrash/')              # digikam uses .dtrash for its trash
     ;;
   desktop)
     SRC="$HOME/"
