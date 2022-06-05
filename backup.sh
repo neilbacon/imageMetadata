@@ -42,7 +42,7 @@ case $BACKUP in
     ;;
   desktop)
     SRC="$HOME/"
-    EXCL=('/.*' '/Downloads/' '/snap/')     # quotes allow for spaces in patterns (with special care below)
+    EXCL=('/.*' '/Downloads/' '/snap/' '/VirtualBox VMs/')     # quotes allow for spaces in patterns (with special care below)
     ;;
   laptop)
     SRC="$HOME/"
