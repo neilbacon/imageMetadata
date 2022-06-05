@@ -56,3 +56,6 @@ There are lots of articles on how to use rsync for incremental backups. `backup.
 
 ## Scan Shrink
 `scanShrink.sh` greatly reduces the size of a PDF file produced by Epson's `Image Scan for Linux` which stores PNG images for each page in the PDF. The page images are extracted, shrunk as above and converted to JPG, then used to create a much smaller PDF file. For ADF duplux documents `Image Scan for Linux` stores even pages up-side-down with metadata to say it should be flipped. The above processing appears to ignore this metadata, so with `-duplex` the script flips these images.
+
+## Compress AVI
+`compressAvi.sh` re-encodes AVI video files to make them smaller (unlikely to still be useful).
