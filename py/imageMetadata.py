@@ -245,13 +245,17 @@ files. DigiKam does this automatically on startup.
             name, ext = os.path.splitext(filename)
             path = os.path.join(dirname, filename)
             dateFromDirname = dateFromPath(path)
-            isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG', '.HEIC' ] # '.GIF'
+            isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF' ] # '.GIF'
             isVideo = ext.upper() in [ '.AVI', '.MOV', '.MP4', '.MTS' ]
             print('path = {}, isImage = {}, isVideo = {}'.format(path, isImage, isVideo))
-            if isImage:
-                processImage(path, args, dateFromDirname)
-            # Can't read video metadata: GLib.Error: GExiv2: unsupported format (501)
-            if isVideo and dateFromDirname:
-                processVideo(path, args, dateFromDirname)
+            try:
+                if isImage:
+                    processImage(path, args, dateFromDirname)
+                    # Can't read video metadata: GLib.Error: GExiv2: unsupported format (501)
+                    # Sony a6000 stores some images with no metadata at all: gi.repository.GLib.GError: GExiv2: corrupted image metadata (59)
+                if isVideo and dateFromDirname:
+                    processVideo(path, args, dateFromDirname)
+            except Exception as e:
+                print(e)
                 
     print('geoCache = {}'.format(geoCache))
