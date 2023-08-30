@@ -11,5 +11,5 @@ set -x
 
 for i in *$input; do
   o=${i%$input}$output
-  exiftool -TagsFromFile $i $o
+  exiftool -overwrite_original -TagsFromFile $i $o
 done
