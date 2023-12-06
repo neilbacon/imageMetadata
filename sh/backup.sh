@@ -1,22 +1,28 @@
 #! /bin/bash
 set -e     # exit on error
 
-MEDIA="/media/$USER"       # base dir for removable disks
-PHOTOS="$MEDIA/NB-Photo/"  # dir(s) to backup for photos (trailing slash significant for rsync, see below)
+BACKUP="photos"              # default backup type
+MEDIA="/media/$USER"         # base dir for removable disks
+if [[ "$USER" == neil ]]; then
+  PHOTOS="$MEDIA/NB-Photo"   # dir(s) to backup for photos
+  DEST="$MEDIA/NB2"
+else
+  PHOTOS="$MEDIA/KerryPhotoDisk"
+  DEST="$MEDIA/KerryBackup2"
+fi
 
-# defaults for command line options
-BACKUP="photos"
-DISK="$MEDIA/NB2"
-
-while getopts :b:d:h opt; do
+while getopts :b:d:s:h opt; do
   case $opt in
     b) BACKUP=$OPTARG;;
-    d) DISK=$OPTARG;;
+    d) DEST=$OPTARG;;
+    d) SRC=$OPTARG;;
     h) cat <<EoF
 Usage: $0 [-b {backup}] [-d {disk}] [-h]
 where:
   -b {backup} is what to backup, one of photos|desktop|laptop, default $BACKUP
-  -d {disk} is the disk to write the backup to, default $DISK
+  -d {dest} is the destination to write the backup to, default $DEST
+  -s {src} is the source dir(s) to backup, default $PHOTOS/ for '-b photos' else $HOME/
+     Note the trailing slash is significant for rsync.
   -h prints this help
 EoF
       exit 0
@@ -37,16 +43,12 @@ shift $((OPTIND - 1))
 # trailing / in SRC dir affects rsync behaviour (contents of dir stored in backup without leading dir component in the path)
 case $BACKUP in
   photos)
-    SRC="$PHOTOS"
-    EXCL=('/lost+found/' '/.*' '/*/.dtrash/')              # digikam uses .dtrash for its trash
+    [[ -n "$SRC" ]] || SRC="$PHOTOS/"
+    EXCL=('/lost+found/' '/.*' '/*/.dtrash/')     # digikam uses .dtrash for its trash
     ;;
-  desktop)
-    SRC="$HOME/"
-    EXCL=('/.*' '/Downloads/' '/snap/' '/VirtualBox VMs/')     # quotes allow for spaces in patterns (with special care below)
-    ;;
-  laptop)
-    SRC="$HOME/"
-    EXCL=('/.*' '/Downloads/' '/snap/' '/sw/' '/VirtualBox VMs/')
+  desktop|laptop)
+    [[ -n "$SRC" ]] || SRC="$HOME/"
+    EXCL=('/.*' '/Downloads/' '/snap/' '/sw/' '/VirtualBox VMs/')     # quotes allow for spaces in patterns (with special care below)
     ;;
   *)
     echo "Unknown {backup} type -b $BACKUP. Try -h for help" >&2
@@ -62,11 +64,8 @@ for d in ${SRC}; do
   fi
 done
 
-DST_DIR="$DISK/backup-$BACKUP"
-if [[ ! -e $DST_DIR ]]; then
-  echo "Missing backup destination $DST_DIR" >&2
-  exit 2
-fi
+DST_DIR="$DEST/backup-$BACKUP"
+mkdir -p "${DST_DIR}"
 DST=$( date "+%Y%m%d_%H%M%S" ).backup
 
 OPTS=('--archive' '--progress')
