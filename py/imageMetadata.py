@@ -7,6 +7,7 @@ import argparse
 import os
 import re
 import requests
+import shutil
 from datetime import datetime
 
 # else PyGIWarning: GExiv2 was imported without specifying a version first
@@ -73,10 +74,10 @@ def dateFromPath(path):
         if (yyyy > 1900 and yyyy < 2050): return datetime(yyyy, g(2), g(3))
 
 def updateListMeta(m, tag, remove, add):
-    vals = m.get_tag_multiple(tag)
+    vals = m.try_get_tag_multiple(tag)
     vals = [ v for v in vals if not remove in v ] if vals else [] # filter any existing v containing remove
     vals.append(add)
-    m.set_tag_multiple(tag, vals)
+    m.try_set_tag_multiple(tag, vals)
     
 def getMeta(path, args):
     m = Metadata(path)
@@ -178,7 +179,7 @@ def moveFile(path, d, dstBaseDir):
             if not os.path.exists(dstDir): os.makedirs(dstDir)
             dst = uniquePath(dstDir, os.path.basename(path))
             print('moveFile: srcDir = {}, dstDir = {}, dst = {}'.format(srcDir, dstDir, dst))
-            os.rename(path, dst)
+            shutil.move(path, dst)
 
 # return a destination path that does not match an existing file
 # first try {dir}/{basename}, but if that exists try {dir}/{name}_{i}{.ext} for i = 1, 2, 3 ...
