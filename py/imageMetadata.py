@@ -246,7 +246,7 @@ files. DigiKam does this automatically on startup.
             name, ext = os.path.splitext(filename)
             path = os.path.join(dirname, filename)
             dateFromDirname = dateFromPath(path)
-            isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF' ] # '.GIF'
+            isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF', '.DNG' ] # '.GIF'
             isVideo = ext.upper() in [ '.AVI', '.MOV', '.MP4', '.MTS' ]
             print('path = {}, isImage = {}, isVideo = {}'.format(path, isImage, isVideo))
             try:
