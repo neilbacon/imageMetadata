@@ -1,15 +1,16 @@
 #! /bin/bash
 
-max_dim=1000 # pixels
+max_dim=1000
+resize="${max_dim}x${max_dim}>" # default resize arg
 
-while getopts :d:h opt; do
+while getopts :d:w:j:h opt; do
   case $opt in
-    d) max_dim=$OPTARG;;
     h) cat <<EoF
-Usage: $0 [-d {max_dim}] [-h] FILE...
-Shrink images files FILE...
-where:
-  -d {max_dim} is the maximum dimension (width or height) in pixels for the shrunk images, default $max_dim
+Usage: $0 [-d|w|j {max_dim}] [-h] FILE...
+Shrink images where:
+  -d {max_dim} is the maximum dimension (width and height) in pixels for the shrunk images, default -d $max_dim
+  -w {max_dim} is the maximum width in pixels for the shrunk images
+  -j {max_dim} is the maximum height in pixels for the shrunk images
   -h prints this help
 FILE is unchanged, with shrunk images created in the current working directory (cwd).
 If FILE is in some other directory (recommended usage), then the shrunk file in the cwd has the same name.
@@ -25,6 +26,9 @@ EoF
       echo "Invalid option: -$OPTARG requires an argument. Try -h for help" >&2
       exit 2
       ;;
+    d) resize="${OPTARG}x${OPTARG}>" ;;
+    w) resize="${OPTARG}>" ;;
+    j) resize="x${OPTARG}>" ;;
   esac
 done
 shift $((OPTIND - 1))
@@ -39,6 +43,6 @@ do
     fi
     echo "$dst ..."
     # https://imagemagick.org/Usage/resize/#resize_colorspace
-    convert "$src" -colorspace RGB -resize "$max_dim>" -colorspace sRGB "$dst"
+    convert "$src" -colorspace RGB -resize "$resize" -colorspace sRGB "$dst"
 done
 echo "Done."
