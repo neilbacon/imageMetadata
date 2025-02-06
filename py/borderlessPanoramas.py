@@ -3,7 +3,7 @@
 import argparse
 from PIL import Image
 
-# return (imageFile, widthPixels, heightPixels, heightPoints)
+# return (imageFile, widthPixels, heightPixels, imageHeightPoints)
 def imageWidthHeightPixels(pageWidthPoints, imageFile):
   i = Image.open(imageFile)
   aspect =  i.height / i.width
@@ -42,6 +42,9 @@ def createPS(args, imageFiles):
   pageHeightPoints = pageHeightMm * 72 / 25.4
   imageDims = [imageWidthHeightPixels(pageWidthPoints, imageFile) for imageFile in imageFiles ]
   sumHeightPoints = sum([i[3] for i in imageDims])
+  
+  # distance from page bottom to bottom of first image = distance from top of last image to top of page
+  # the gap between images is twice this
   heightMarginPoints = (pageHeightPoints - sumHeightPoints) / (2 * len(imageFiles)) if pageHeightPoints > sumHeightPoints else 0
 
   psImages = ""
@@ -63,9 +66,6 @@ def createPS(args, imageFiles):
   showpage 
   """
 )
-
-# convert PS to PDF
-# gs -dNOSAFER  -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -sOutputFile=a.pdf a.ps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser( description = '''Generate a Postscript page of panoramic images.
