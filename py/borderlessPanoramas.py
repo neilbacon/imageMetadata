@@ -77,7 +77,7 @@ gs -dNOSAFER  -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -sOutputFile=a.pdf a.ps
     parser.add_argument("--pageSize", choices=('A4', 'A3', 'A3+'), help="the page size (or use pageWidth and pageHeight)", default='A4')
     parser.add_argument("--pageWidth",  help="page width (mm)", type=int)
     parser.add_argument("--pageHeight",  help="page height (mm)", type=int)
-    parser.add_argument("--portrait", action="store_true", help="use portrait orientation for pageSize")
+    parser.add_argument("--portrait", action="store_true", help="use portrait orientation for pageSize (not applied if pageWidth and pageHeight are used)")
     parser.add_argument("--output", help="output Postscript file name", default="output.ps")
     args, imageFiles = parser.parse_known_args()
     createPS(args, imageFiles)

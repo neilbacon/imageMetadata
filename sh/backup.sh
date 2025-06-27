@@ -4,10 +4,10 @@ set -e     # exit on error
 BACKUP="photos"              # default backup type
 MEDIA="/media/$USER"         # base dir for removable disks
 if [[ "$USER" == neil ]]; then
-  PHOTOS="$MEDIA/NB-Photo"   # dir(s) to backup for photos
+  PHOTOS="$MEDIA/NB-Photo/ $HOME/digiKamDB/"   # dir(s) to backup for photos
   DEST="$MEDIA/NB2"
 else
-  PHOTOS="$MEDIA/KerryPhotoDisk"
+  PHOTOS="$MEDIA/KerryPhotoDisk/"
   DEST="$MEDIA/KerryBackup2"
 fi
 
@@ -21,7 +21,7 @@ Usage: $0 [-b {backup}] [-d {disk}] [-h]
 where:
   -b {backup} is what to backup, one of photos|desktop|laptop, default $BACKUP
   -d {dest} is the destination to write the backup to, default $DEST
-  -s {src} is the source dir(s) to backup, default $PHOTOS/ for '-b photos' else $HOME/
+  -s {src} is the source dir(s) to backup, default $PHOTOS for '-b photos' else $HOME/
      Note the trailing slash is significant for rsync.
   -h prints this help
 EoF
@@ -43,7 +43,7 @@ shift $((OPTIND - 1))
 # trailing / in SRC dir affects rsync behaviour (contents of dir stored in backup without leading dir component in the path)
 case $BACKUP in
   photos)
-    [[ -n "$SRC" ]] || SRC="$PHOTOS/"
+    [[ -n "$SRC" ]] || SRC="$PHOTOS"
     EXCL=('/lost+found/' '/.*' '/*/.dtrash/')     # digikam uses .dtrash for its trash
     ;;
   desktop|laptop)
