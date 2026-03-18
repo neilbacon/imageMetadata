@@ -4,7 +4,7 @@ set -e     # exit on error
 BACKUP="photos"              # default backup type
 MEDIA="/media/$USER"         # base dir for removable disks
 if [[ "$USER" == neil ]]; then
-  PHOTOS="$MEDIA/NB-Photo/ $HOME/digiKamDB/"   # dir(s) to backup for photos
+  PHOTOS="$MEDIA/NB-Photo/ $HOME/DigikamDB/"   # dir(s) to backup for photos
   DEST="$MEDIA/NB2"
 else
   PHOTOS="$MEDIA/KerryPhotoDisk/"
