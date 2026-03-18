@@ -9,6 +9,7 @@ import re
 import requests
 import shutil
 from datetime import datetime
+from stat import S_IREAD, S_IRGRP, S_IROTH
 
 # else PyGIWarning: GExiv2 was imported without specifying a version first
 import gi
@@ -20,7 +21,7 @@ DATE_RE = re.compile(r'(\d{4})[/-]?(\d{2})[/-]?(\d{2})')
 
 DATE_FORMAT = '%Y:%m:%d %H:%M:%S'
 
-# Google API for geocoding, works with no key for only a small number of requests
+# Google API for geocoding, now requires API key
 API_URL='https://maps.googleapis.com/maps/api/geocode/json'
 API_KEY=None # put your Google API key here or use --apikey
 
@@ -72,6 +73,7 @@ def dateFromPath(path):
         def g(i): return int(m.group(i))
         yyyy = g(1)
         if (yyyy > 1900 and yyyy < 2050): return datetime(yyyy, g(2), g(3))
+    return None
 
 def updateListMeta(m, tag, remove, add):
     vals = m.try_get_tag_multiple(tag)
@@ -100,15 +102,19 @@ def getMeta(path, args):
     
     return m
     
-def getDate(m):
+def dateFromMeta(m):
     for t in ['Exif.Photo.DateTimeOriginal', 'Exif.Photo.DateTimeDigitized', 'Exif.Image.DateTime' ]:
         d = m.get(t)
         if d: return datetime.strptime(d, DATE_FORMAT)
+    return None
         
 def processImage(path, args, dateFromDirname):
     m = getMeta(path, args)
     if not args.tagfilter or any(t.startswith(args.tagfilter) for t in m.get_tag_multiple('Xmp.digiKam.TagsList')):
-        
+        d = dateFromMeta(m)
+        dst = moveFile(path, d, args.moveimage)
+        os.chmod(dst, S_IREAD|S_IRGRP|S_IROTH)
+
         mod = False
     
         if args.geocode and args.apikey and not m.get('Exif.GPSInfo.GPSLatitude'):
@@ -120,9 +126,8 @@ def processImage(path, args, dateFromDirname):
                     m.set_gps_info(loc['lng'], loc['lat'], 0.0)
                     mod = True
         
-        model = m.get('Exif.Image.Model')
-        d = getDate(m)
-        if args.datepath and dateFromDirname and (args.datepathforce or args.scanned or model == 'DSC-80M-52' or not d):
+        d = dateFromMeta(m)
+        if args.datepath and dateFromDirname and (args.datepathforce or args.scanned or not d):
             d = dateFromDirname.strftime(DATE_FORMAT)
             print('processImage: setting date from dirname: d = {} for {}'.format(d, path))
             tagsToSet =  [ 'Exif.Image.DateTime', 'Exif.Photo.DateTimeOriginal' ]
@@ -148,7 +153,6 @@ def processImage(path, args, dateFromDirname):
             model = m.get('Exif.Image.Model')
             if not model and args.scanned: model = 'Scanned'
             if model:
-                if model == 'DSC-80M-52': model = 'Samsung Digimax 800K'
                 for t in [ 'Iptc.Application2.Keywords', 'Xmp.MicrosoftPhoto.LastKeywordXMP' ]:
                     while m.has_tag(t): m.clear_tag(t)  # delete; can get repeats
                 # digiKam uses / separator
@@ -163,10 +167,9 @@ def processImage(path, args, dateFromDirname):
                     updateListMeta(m, t, remove, add)
                 mod = True
         
-        d = getDate(m)
         if mod:
-           m.save_file()
-        moveFile(path, d, args.moveimage)
+            m.save_external('{}.xmp'.format(dst))
+
     
 def processVideo(path, args, dateFromDirname):
     moveFile(path, dateFromDirname, args.movevideo)
@@ -180,6 +183,8 @@ def moveFile(path, d, dstBaseDir):
             dst = uniquePath(dstDir, os.path.basename(path))
             print('moveFile: srcDir = {}, dstDir = {}, dst = {}'.format(srcDir, dstDir, dst))
             shutil.move(path, dst)
+            return dst
+    return path
 
 # return a destination path that does not match an existing file
 # first try {dir}/{basename}, but if that exists try {dir}/{name}_{i}{.ext} for i = 1, 2, 3 ...
@@ -197,20 +202,20 @@ def uniquePath(dir, basename):
     
   
 # Example usage:
-# python3 im.py --root /media/neil/NBWDPassport/Junk/NeilsOld/2000-10-22/ --takenby 'Taken by/byNeil' --moveimage /media/neil/NBWDPassport/Junk/NeilsOld/moved --geocode --datepath | tee out
+# python3 im.py --root /media/neil/NIKON\ Z\ 6_2/ --takenby 'Taken by/byNeil' --moveimage /media/neil/NB-Photo/Photos/
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser( description = '''Organise a photo collection by updating metadata and moving files.
 This is tailored to my needs and will need hacking about to suit yours.
 
 I use hierarchical tags in digikam which have / separated items. The hierarchical tags used
-by Adobe light room and mediapro are | separated are these are also updated.
+by Adobe light room and mediapro are | separated and these are also updated.
 
 I use a tag tree Taken by/{photographer}/{camera model} so that I can search by photographer
 or by which camera they used. This is set by the --takenby option.
 
-I also use a tag tree Places/{continent}/{country}/... which can be used to roughly geocode
-with the --geocode option (only photos with no existing GPS metadata).
+I also use a tag tree Places/{continent}/{country}/... which can be populated by Digikam's reverse geocoder (using GPS location metadata) or can be manually
+set and used to roughly geocode with the --geocode option (sets GPS location metadata only for photos with no existing GPS metadata, requires a Google Maps API key).
 
 I like my photos stored under a folder yyyy/mm/dd reflecting the date taken and this is done
 by the --moveimage option.
@@ -219,12 +224,14 @@ adding _{number} just before the extention.
 However date metadata is sometimes missing or wrong for old cameras and scanned
 images, so images placed a folder with yyyy-mm-dd somewhere in the name can have the metadata
 set to this date using the --datepath option (only if not already set or certain other conditions are met).
+After moving, image files are made read-only and metadata is written to XMP sidecar files
+which are recognized by most photo managers. 
 
 Scanned images can have the digitized date metadata set from the file creation date using the
 --scanned option.
 
-If image metadata is changed, your photo manager needs to resync its metadata from the image
-files. DigiKam does this automatically on startup.
+If image metadata is changed, your photo manager needs to resync its metadata from the XMP sidecar
+files. Digikam does this automatically on startup or you can manually refresh.
 ''')
     parser.add_argument("--root",     help="ROOT dir of images to process (default .)")
     parser.add_argument("--tagfilter",  help="only operate on files with a tag starting with this")
@@ -246,7 +253,7 @@ files. DigiKam does this automatically on startup.
             name, ext = os.path.splitext(filename)
             path = os.path.join(dirname, filename)
             dateFromDirname = dateFromPath(path)
-            isImage = ext.upper() in [ '.JPG', '.JPEG', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF', '.DNG' ] # '.GIF'
+            isImage = ext.upper() in [ '.JPG', '.JPEG', '.WEBP', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF', '.DNG', '.GIF', '.FIT' ]
             isVideo = ext.upper() in [ '.AVI', '.MOV', '.MP4', '.MTS' ]
             print('path = {}, isImage = {}, isVideo = {}'.format(path, isImage, isVideo))
             try:
