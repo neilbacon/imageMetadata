@@ -20,6 +20,7 @@ from gi.repository.GExiv2 import Metadata
 DATE_RE = re.compile(r'(\d{4})[/-]?(\d{2})[/-]?(\d{2})')    
 
 DATE_FORMAT = '%Y:%m:%d %H:%M:%S'
+SEESTAR_DATE_FORMAT = '%Y.%m.%d %H:%M:%S'
 
 # Google API for geocoding, now requires API key
 API_URL='https://maps.googleapis.com/maps/api/geocode/json'
@@ -85,12 +86,12 @@ def getMeta(path, args):
     m = Metadata(path)
     
     if args.print:
-        print('getMeta: {} exif_tags, {} iptc_tags, {} xmp_tags, path {}, dateFromDirname {}'.format(
+        print('getMeta: {} exif_tags, {} iptc_tags, {} xmp_tags, path {}, dateFromPath {}'.format(
             len(m.get_exif_tags()), 
             len(m.get_iptc_tags()),
             len(m.get_xmp_tags()),
             path,
-            dateFromDirname.strftime(DATE_FORMAT) if dateFromDirname else None
+         dateFromPath.strftime(DATE_FORMAT) if dateFromPath else None
         ))
         
         for t in m.get_tags():
@@ -105,11 +106,28 @@ def getMeta(path, args):
 def dateFromMeta(m):
     for t in ['Exif.Photo.DateTimeOriginal', 'Exif.Photo.DateTimeDigitized', 'Exif.Image.DateTime' ]:
         d = m.get(t)
-        if d: return datetime.strptime(d, DATE_FORMAT)
+        if d:
+            try:
+                return datetime.strptime(d, DATE_FORMAT)
+            except Exception as e:
+                return datetime.strptime(d, SEESTAR_DATE_FORMAT) # SeeStar uses a different invalid? date format
     return None
-        
-def processImage(path, args, dateFromDirname):
-    m = getMeta(path, args)
+
+def setDateFields(m, d):
+    tagsToSet =  [ 'Exif.Image.DateTime', 'Exif.Photo.DateTimeOriginal' ]
+    if not args.scanned: tagsToSet.append('Exif.Photo.DateTimeDigitized')
+    ds = d.strftime(DATE_FORMAT)
+    for t in tagsToSet:
+        m[t] = ds # m.set(t, d) doesn't work for dates
+    # delete proprietary date tags and tags in other formats
+    for t in [ 'Xmp.exif.DateTimeOriginal', 'Xmp.photoshop.DateCreated', 'Xmp.tiff.DateTime', 'Xmp.video.DateTimeOriginal', 'Xmp.video.DateUTC', 'Xmp.video.ModificationDate', 'Xmp.xmp.CreateDate', 'Xmp.xmp.MetadataDate', 'Xmp.xmp.ModifyDate' ]:
+        m.clear_tag(t)
+
+def processImage(path, args, dateFromPath):
+    metaPath = re.sub('\\.fit$', '.jpg', path) if args.seestar and path.endswith('.fit') else path
+    print('processImage: metaPath = {}'.format(metaPath))
+    m = getMeta(metaPath, args) # for .fit, get meta from .jpg
+
     if not args.tagfilter or any(t.startswith(args.tagfilter) for t in m.get_tag_multiple('Xmp.digiKam.TagsList')):
         d = dateFromMeta(m)
         dst = moveFile(path, d, args.moveimage)
@@ -126,18 +144,14 @@ def processImage(path, args, dateFromDirname):
                     m.set_gps_info(loc['lng'], loc['lat'], 0.0)
                     mod = True
         
-        d = dateFromMeta(m)
-        if args.datepath and dateFromDirname and (args.datepathforce or args.scanned or not d):
-            d = dateFromDirname.strftime(DATE_FORMAT)
+        if args.seestar and d:
+            setDateFields(m, d) # correct invalid SeeStar date format
+            mod = True
+            
+        if args.datepath and dateFromPath and (args.datepathforce or args.scanned or not d):
+            d = dateFromPath.strftime(DATE_FORMAT)
             print('processImage: setting date from dirname: d = {} for {}'.format(d, path))
-            tagsToSet =  [ 'Exif.Image.DateTime', 'Exif.Photo.DateTimeOriginal' ]
-            if not args.scanned: tagsToSet.append('Exif.Photo.DateTimeDigitized')
-            # tagsToSet =  [ 'Exif.Image.DateTime', 'Exif.Photo.DateTimeOriginal', 'Exif.Photo.DateTimeDigitized' ]
-            for t in tagsToSet:
-                m[t] = d # m.set(t, d) doesn't work for dates
-            # delete proprietary date tags and tags in other formats
-            for t in [ 'Xmp.exif.DateTimeOriginal', 'Xmp.photoshop.DateCreated', 'Xmp.tiff.DateTime', 'Xmp.video.DateTimeOriginal', 'Xmp.video.DateUTC', 'Xmp.video.ModificationDate', 'Xmp.xmp.CreateDate', 'Xmp.xmp.MetadataDate', 'Xmp.xmp.ModifyDate' ]:
-                m.clear_tag(t)
+            setDateFields(m, d)
             mod = True
             
         if args.scanned:
@@ -171,8 +185,8 @@ def processImage(path, args, dateFromDirname):
             m.save_external('{}.xmp'.format(dst))
 
     
-def processVideo(path, args, dateFromDirname):
-    moveFile(path, dateFromDirname, args.movevideo)
+def processVideo(path, args, dateFromPath):
+    moveFile(path, dateFromPath, args.movevideo)
 
 def moveFile(path, d, dstBaseDir):
     if d and dstBaseDir:
@@ -230,6 +244,10 @@ which are recognized by most photo managers.
 Scanned images can have the digitized date metadata set from the file creation date using the
 --scanned option.
 
+With the --seestar option .fit and .jpg files are processed instead of the usual list of image types:
+ - .fit astronomical image files are processed using metadata from the corresponding .jpg file (.fit files have other uses too, so we don't want to process them without --seestar)
+ - *_thn.jpg thumbnail images are ignored (other jpg's are processed normally)
+
 If image metadata is changed, your photo manager needs to resync its metadata from the XMP sidecar
 files. Digikam does this automatically on startup or you can manually refresh.
 ''')
@@ -238,6 +256,7 @@ files. Digikam does this automatically on startup or you can manually refresh.
     parser.add_argument("--takenby",  help="remove existing hierarcical tag containing TAKENBY and add {TAKENBY}/{camera model}")
     parser.add_argument("--moveimage", help="move image to MOVEIMAGE/yyyy/mm/dd/")
     parser.add_argument("--movevideo", help="move video to MOVEVIDEO/yyyy/mm/dd/")
+    parser.add_argument("--seestar",  action="store_true", help="SeeStar telescope mode: move *.fit files and skip *_thn.jpg thumbnails")
     parser.add_argument("--geocode",  action="store_true", help="set missing GPS metadata from place name after 'Places/' hierarchical tag")
     parser.add_argument("--apikey",  help="your API key for Google Maps geocoding")
     parser.add_argument("--datepath", action="store_true", help="set lots of date tags from yyyy-mm-dd in dirname (only if not alreadt set)")
@@ -249,21 +268,23 @@ files. Digikam does this automatically on startup or you can manually refresh.
     print('args: root = {}, datepath = {}, scanned = {}, takenby = {}'.format(args.root, args.datepath, args.scanned, args.takenby))
     
     for dirname, dirnames, filenames in os.walk(args.root if args.root else '.'):
-        for filename in filenames:
+        # process .fit files before .jpg files so the .fit processing can use the .jpg metadata
+        ordered = [f for f in filenames if f.endswith('.fit')] + [f for f in filenames if not f.endswith('.fit')]
+        for filename in ordered:
             name, ext = os.path.splitext(filename)
             path = os.path.join(dirname, filename)
-            dateFromDirname = dateFromPath(path)
-            isImage = ext.upper() in [ '.JPG', '.JPEG', '.WEBP', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF', '.DNG', '.GIF', '.FIT' ]
+            date = dateFromPath(path)
+            isImage = ext.upper() in [ '.JPG', '.FIT' ] and not name.endswith('_thn') if args.seestar else ext.upper() in [ '.JPG', '.JPEG', '.WEBP', '.TIF', '.TIFF', '.PNG', '.HEIC', '.NEF', '.DNG', '.GIF' ] 
             isVideo = ext.upper() in [ '.AVI', '.MOV', '.MP4', '.MTS' ]
             print('path = {}, isImage = {}, isVideo = {}'.format(path, isImage, isVideo))
             try:
                 if isImage:
-                    processImage(path, args, dateFromDirname)
+                    processImage(path, args, date)
                     # Can't read video metadata: GLib.Error: GExiv2: unsupported format (501)
                     # Sony a6000 stores some images with no metadata at all: gi.repository.GLib.GError: GExiv2: corrupted image metadata (59)
-                if isVideo and dateFromDirname:
-                    processVideo(path, args, dateFromDirname)
+                if isVideo and date:
+                    processVideo(path, args, date)
             except Exception as e:
                 print(e)
                 
-    print('geoCache = {}'.format(geoCache))
+    # print('geoCache = {}'.format(geoCache))
