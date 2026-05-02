@@ -1,7 +1,9 @@
 #! /usr/bin/env python3
 
-# ubuntu 16.04 LTS and 17.10 requirements: 
+# from ubuntu 16.04 to 24.04 requirements: 
 # sudo apt-get install python3-gi libexiv2-dev libgexiv2-2 gir1.2-gexiv2 
+# fedora 44 requirements:
+# sudo dnf install python3-gobject exiv2-devel libgexiv2-devel
 
 import argparse
 import os
@@ -13,8 +15,7 @@ from stat import S_IREAD, S_IRGRP, S_IROTH
 
 # else PyGIWarning: GExiv2 was imported without specifying a version first
 import gi
-gi.require_version('GExiv2', '0.10') 
-
+gi.require_version('GExiv2', '0.16')
 from gi.repository.GExiv2 import Metadata
 
 DATE_RE = re.compile(r'(\d{4})[/-]?(\d{2})[/-]?(\d{2})')    
@@ -83,7 +84,8 @@ def updateListMeta(m, tag, remove, add):
     m.try_set_tag_multiple(tag, vals)
     
 def getMeta(path, args):
-    m = Metadata(path)
+    m = Metadata()
+    m.open_path(path)
     
     if args.print:
         print('getMeta: {} exif_tags, {} iptc_tags, {} xmp_tags, path {}, dateFromPath {}'.format(
@@ -97,7 +99,7 @@ def getMeta(path, args):
         for t in m.get_tags():
             # if t != 'Exif.Photo.MakerNote': # avoid big binary? item
             if any(x in t for x in [ 'Date', 'Image.Make', 'Model', 'Categories', 'GPS', 'Latitude', 'Longitude' ]):
-                print('getMeta: {} -> {}'.format(t, m.get(t)))
+                print('getMeta: {} -> {}'.format(t, m.get_tag_string(t)))
             if any(x in t for x in [ 'Tags', 'LastKeywordXMP', 'HierarchicalSubject', 'CatalogSets', 'Subject', 'Keywords' ]):
                 print('getMeta: {} => [ {} ]'.format(t, ', '.join(m.get_tag_multiple(t))))
     
@@ -105,7 +107,7 @@ def getMeta(path, args):
     
 def dateFromMeta(m):
     for t in ['Exif.Photo.DateTimeOriginal', 'Exif.Photo.DateTimeDigitized', 'Exif.Image.DateTime' ]:
-        d = m.get(t)
+        d = m.get_tag_string(t)
         if d:
             try:
                 return datetime.strptime(d, DATE_FORMAT)
@@ -135,7 +137,7 @@ def processImage(path, args, dateFromPath):
 
         mod = False
     
-        if args.geocode and args.apikey and not m.get('Exif.GPSInfo.GPSLatitude'):
+        if args.geocode and args.apikey and not m.get_tag_string('Exif.GPSInfo.GPSLatitude'):
             place = [ x for x in m.get_tag_multiple('Xmp.digiKam.TagsList') if x.startswith('Places/') ]
             if len(place) > 0:
                 place = place[0].replace('Places/', '').split('/')
@@ -156,7 +158,7 @@ def processImage(path, args, dateFromPath):
             
         if args.scanned:
             t = 'Exif.Photo.DateTimeDigitized'
-            d = m.get(t)
+            d = m.get_tag_string(t)
             print('scanned date = {}'.format(d))
             if not d:
                 d = datetime.fromtimestamp(os.path.getmtime(path)).strftime(DATE_FORMAT)
@@ -164,7 +166,7 @@ def processImage(path, args, dateFromPath):
                 mod = True
                 
         if args.takenby:
-            model = m.get('Exif.Image.Model')
+            model = m.get_tag_string('Exif.Image.Model')
             if not model and args.scanned: model = 'Scanned'
             if model:
                 for t in [ 'Iptc.Application2.Keywords', 'Xmp.MicrosoftPhoto.LastKeywordXMP' ]:
